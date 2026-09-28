@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
 import type { Schedule } from './types';
 import { CurrentActivity } from './components/CurrentActivity';
 import { Timeline } from './components/Timeline';
 import { ScheduleForm } from './components/ScheduleForm';
 import { DatePicker } from './components/DatePicker';
+import './style.css';
 
 function App() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -168,4 +170,4 @@ function App() {
   );
 }
 
-export default App;
+createRoot(document.getElementById('app')!).render(<App />);
