@@ -1,13 +1,28 @@
-import type { Schedule } from '../types';
+import type { Schedule, RepeatType } from '../types';
 
 interface Props {
   schedules: Schedule[];
   currentTime: Date;
   onSelect: (schedule: Schedule) => void;
+  onSelectRecurring?: (schedule: Schedule) => void;
+  recurringInfo?: Map<string, { repeat_type: RepeatType; repeat_days: number[] }>;
 }
 
-export function Timeline({ schedules, currentTime, onSelect }: Props) {
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function getRepeatLabel(repeatType: RepeatType, repeatDays: number[]): string {
+  switch (repeatType) {
+    case 'daily': return 'Every day';
+    case 'weekdays': return 'Weekdays';
+    case 'weekly': return repeatDays.length > 0 ? repeatDays.map((d) => DAY_LABELS[d]).join(', ') : 'Weekly';
+    case 'custom': return repeatDays.length > 0 ? repeatDays.map((d) => DAY_LABELS[d]).join(', ') : 'Custom';
+    default: return '';
+  }
+}
+
+export function Timeline({ schedules, currentTime, onSelect, onSelectRecurring, recurringInfo }: Props) {
   const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+  const recurringIds = new Set(schedules.filter((s) => !s.created_at).map((s) => s.id));
 
   if (schedules.length === 0) {
     return (
@@ -69,9 +84,22 @@ export function Timeline({ schedules, currentTime, onSelect }: Props) {
                 key={s.id}
                 className={`timeline-event${isActive ? ' active' : ''}`}
                 style={{ top: `${top}%`, height: `${Math.max(height, 3)}%` }}
-                onClick={() => onSelect(s)}
+                onClick={() => {
+                  if (onSelectRecurring && recurringIds.has(s.id)) {
+                    onSelectRecurring(s);
+                  } else {
+                    onSelect(s);
+                  }
+                }}
               >
-                <span className="event-title">{s.title}</span>
+                <span className="event-title">
+                  {s.title}
+                  {recurringIds.has(s.id) && recurringInfo?.has(s.id) && (
+                    <span className="recurring-label">
+                      {getRepeatLabel(recurringInfo.get(s.id)!.repeat_type, recurringInfo.get(s.id)!.repeat_days)}
+                    </span>
+                  )}
+                </span>
               </div>
             );
           })}

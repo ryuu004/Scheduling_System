@@ -52,9 +52,15 @@ body {
 
 .header-top {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 16px 20px 0;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.header-spacer {
+  flex: 1;
 }
 
 .dark-toggle {
@@ -233,6 +239,16 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recurring-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 4px;
 }
 
 /* Now Indicator */
@@ -290,6 +306,13 @@ body {
 .fab:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.fab-secondary {
+  bottom: 88px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 /* Modal */
@@ -426,6 +449,69 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* Repeat Options */
+.repeat-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.repeat-btn {
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  text-align: left;
+}
+
+.repeat-btn:hover {
+  background: var(--accent-light);
+  color: var(--text);
+}
+
+.repeat-btn.active {
+  background: var(--accent-light);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Days Row */
+.days-row {
+  display: flex;
+  gap: 4px;
+}
+
+.day-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.day-btn:hover {
+  background: var(--accent-light);
+  color: var(--text);
+}
+
+.day-btn.active {
+  background: var(--accent-light);
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* Loading */

@@ -1,3 +1,5 @@
+import { getLocalDateStr } from '../lib/date';
+
 interface Props {
   selectedDate: string;
   onChange: (date: string) => void;
@@ -8,7 +10,7 @@ export function DatePicker({ selectedDate, onChange }: Props) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+  const formatDate = (d: Date) => getLocalDateStr(d);
 
   const isToday = selectedDate === formatDate(today);
   const isTomorrow = selectedDate === formatDate(tomorrow);
