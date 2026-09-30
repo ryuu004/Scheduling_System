@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Schedule } from './types';
+import type { Schedule, RepeatType } from './types';
 import { useClock } from './hooks/useClock';
 import { useSchedules } from './hooks/useSchedules';
 import { useRecurringSchedules } from './hooks/useRecurringSchedules';
@@ -7,7 +7,9 @@ import { getRecurringSchedulesForDate } from './lib/recurrence';
 import { CurrentActivity } from './components/CurrentActivity';
 import { Timeline } from './components/Timeline';
 import { ScheduleForm, type ScheduleFormData } from './components/ScheduleForm';
+import { ActivityCapture } from './components/ActivityCapture';
 import { DatePicker } from './components/DatePicker';
+import { getLocalDateStr } from './lib/date';
 
 export function SchedulerPage() {
   const currentTime = useClock();
@@ -16,6 +18,7 @@ export function SchedulerPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
   const [showForm, setShowForm] = useState(false);
+  const [showCapture, setShowCapture] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const { schedules, loading, saveSchedule, deleteSchedule } = useSchedules(selectedDate);
   const { recurring, exceptions, saveRecurring, deleteRecurring, addException } = useRecurringSchedules();
@@ -39,8 +42,9 @@ export function SchedulerPage() {
         end_time: formData.end_time,
         repeat_type: formData.repeat_type,
         repeat_days: formData.repeat_days,
+        start_date: formData.start_date,
       };
-      if (editingSchedule && (editingSchedule as any).repeat_type) {
+      if (editingSchedule && editingSchedule.repeat_type) {
         const recurringSchedule = recurring.find((r) => r.id === editingSchedule.id);
         if (recurringSchedule) {
           await saveRecurring(recurringData, recurringSchedule.id);
@@ -55,6 +59,16 @@ export function SchedulerPage() {
       }
     }
     closeForm();
+  };
+
+  const handleCapture = async (data: { title: string; start_time: string; end_time: string; repeat_type: RepeatType; repeat_days: number[] }) => {
+    const today = getLocalDateStr();
+    if (data.repeat_type === 'none') {
+      await saveSchedule({ title: data.title, date: today, start_time: data.start_time, end_time: data.end_time });
+    } else {
+      await saveRecurring({ title: data.title, start_time: data.start_time, end_time: data.end_time, repeat_type: data.repeat_type, repeat_days: data.repeat_days, start_date: getLocalDateStr() });
+    }
+    setShowCapture(false);
   };
 
   const handleDelete = async () => {
@@ -82,7 +96,7 @@ export function SchedulerPage() {
       </header>
 
       <main className="app-main">
-        <CurrentActivity schedules={allSchedules} currentTime={currentTime} />
+        <CurrentActivity schedules={allSchedules} currentTime={currentTime} onCapture={() => setShowCapture(true)} />
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
@@ -98,8 +112,15 @@ export function SchedulerPage() {
           selectedDate={selectedDate}
           onSave={handleSave}
           onDelete={editingSchedule ? handleDelete : undefined}
-          onSkipDay={editingSchedule && (editingSchedule as any).repeat_type ? handleSkipDay : undefined}
+          onSkipDay={editingSchedule && editingSchedule.repeat_type ? handleSkipDay : undefined}
           onClose={closeForm}
+        />
+      )}
+      {showCapture && (
+        <ActivityCapture
+          currentTime={currentTime}
+          onSave={handleCapture}
+          onClose={() => setShowCapture(false)}
         />
       )}
     </>

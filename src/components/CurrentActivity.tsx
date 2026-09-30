@@ -3,9 +3,10 @@ import type { Schedule } from '../types';
 interface Props {
   schedules: Schedule[];
   currentTime: Date;
+  onCapture: () => void;
 }
 
-export function CurrentActivity({ schedules, currentTime }: Props) {
+export function CurrentActivity({ schedules, currentTime, onCapture }: Props) {
   const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
 
   const activeSchedule = schedules.find((s) => {
@@ -26,9 +27,14 @@ export function CurrentActivity({ schedules, currentTime }: Props) {
     <div className="current-activity">
       <div className="current-time">{now}</div>
       <div className="current-label">Current Activity</div>
-      <div className="current-title">
-        {activeSchedule ? activeSchedule.title : 'Nothing scheduled'}
-      </div>
+      {activeSchedule ? (
+        <div className="current-title">{activeSchedule.title}</div>
+      ) : (
+        <button className="capture-btn" onClick={onCapture}>
+          <span className="capture-label">Nothing scheduled</span>
+          <span className="capture-action">What are you doing right now?</span>
+        </button>
+      )}
     </div>
   );
 }

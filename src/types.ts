@@ -18,6 +18,7 @@ export interface RecurringSchedule {
   end_time: string;
   repeat_type: RepeatType;
   repeat_days: number[];
+  start_date: string;
   created_at: string;
 }
 

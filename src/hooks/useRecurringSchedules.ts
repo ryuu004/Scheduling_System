@@ -31,7 +31,7 @@ export function useRecurringSchedules() {
     if (editingId) {
       const { error } = await supabase
         .from('recurring_schedules')
-        .update({ title: data.title, start_time: data.start_time, end_time: data.end_time, repeat_type: data.repeat_type, repeat_days: data.repeat_days })
+        .update({ title: data.title, start_time: data.start_time, end_time: data.end_time, repeat_type: data.repeat_type, repeat_days: data.repeat_days, start_date: data.start_date })
         .eq('id', editingId);
 
       if (!error) {

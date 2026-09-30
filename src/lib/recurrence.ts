@@ -11,6 +11,7 @@ export function getRecurringSchedulesForDate(
   return recurring
     .filter((r) => {
       if (r.repeat_type === 'none') return false;
+      if (dateStr < r.start_date) return false;
 
       const isException = exceptions.some(
         (e) => e.recurring_id === r.id && e.exception_date === dateStr

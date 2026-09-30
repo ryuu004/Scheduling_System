@@ -17,6 +17,7 @@ export interface ScheduleFormData {
   end_time: string;
   repeat_type: RepeatType;
   repeat_days: number[];
+  start_date: string;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -28,6 +29,7 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
   const [endTime, setEndTime] = useState('10:00');
   const [repeatType, setRepeatType] = useState<RepeatType>('none');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [startDate, setStartDate] = useState(selectedDate);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -36,15 +38,16 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
       setDate(schedule.date);
       setStartTime(schedule.start_time);
       setEndTime(schedule.end_time);
-      setRepeatType((schedule as any).repeat_type || 'none');
-      setRepeatDays((schedule as any).repeat_days || []);
+      setRepeatType(schedule.repeat_type || 'none');
+      setRepeatDays(schedule.repeat_days || []);
+      setStartDate((schedule as any).start_date || selectedDate);
     }
   }, [schedule]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onSave({ title: title.trim(), date, start_time: startTime, end_time: endTime, repeat_type: repeatType, repeat_days: repeatDays });
+    onSave({ title: title.trim(), date, start_time: startTime, end_time: endTime, repeat_type: repeatType, repeat_days: repeatDays, start_date: startDate });
   };
 
   const toggleDay = (day: number) => {
@@ -98,6 +101,17 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
               />
             </div>
           </div>
+          {repeatType !== 'none' && (
+            <div className="form-group">
+              <label htmlFor="start-date">Start Date</label>
+              <input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+          )}
           <div className="form-group">
             <label>Repeat</label>
             <div className="repeat-options">
