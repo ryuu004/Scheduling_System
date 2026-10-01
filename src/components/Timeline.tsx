@@ -81,7 +81,7 @@ export function Timeline({ schedules, currentTime, onSelect, onSelectRecurring, 
 
             return (
               <div
-                key={s.id}
+                key={s.segmentId ?? s.id}
                 className={`timeline-event${isActive ? ' active' : ''}`}
                 style={{ top: `${top}%`, height: `${Math.max(height, 3)}%` }}
                 onClick={() => {

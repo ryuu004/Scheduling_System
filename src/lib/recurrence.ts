@@ -1,8 +1,9 @@
-import type { RecurringSchedule, RecurringException, Schedule } from '../types';
+import type { RecurringSchedule, RecurringException, Schedule, OccurrenceOverride } from '../types';
 
 export function getRecurringSchedulesForDate(
   recurring: RecurringSchedule[],
   exceptions: RecurringException[],
+  overrides: OccurrenceOverride[],
   dateStr: string
 ): Schedule[] {
   const date = new Date(dateStr + 'T00:00:00');
@@ -31,14 +32,28 @@ export function getRecurringSchedulesForDate(
           return false;
       }
     })
-    .map((r) => ({
-      id: r.id,
-      title: r.title,
-      date: dateStr,
-      start_time: r.start_time,
-      end_time: r.end_time,
-      created_at: r.created_at,
-      repeat_type: r.repeat_type,
-      repeat_days: r.repeat_days,
-    }));
+    .flatMap((r) => {
+      const segments = overrides.filter(
+        (o) => o.recurring_id === r.id && o.override_date === dateStr
+      );
+      const base = {
+        id: r.id,
+        title: r.title,
+        date: dateStr,
+        created_at: r.created_at,
+        repeat_type: r.repeat_type,
+        repeat_days: r.repeat_days,
+      };
+
+      if (segments.length === 0) {
+        return [{ ...base, start_time: r.start_time, end_time: r.end_time }];
+      }
+
+      return segments.map((o) => ({
+        ...base,
+        segmentId: o.id,
+        start_time: o.start_time,
+        end_time: o.end_time,
+      }));
+    });
 }
