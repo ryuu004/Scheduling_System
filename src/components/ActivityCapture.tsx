@@ -3,7 +3,14 @@ import type { RepeatType } from '../types';
 
 interface Props {
   currentTime: Date;
-  onSave: (data: { title: string; start_time: string; end_time: string; repeat_type: RepeatType; repeat_days: number[]; start_date: string }) => void;
+  onSave: (data: {
+    title: string;
+    start_time: string;
+    end_time: string;
+    repeat_type: RepeatType;
+    repeat_days: number[];
+    alsoAddSchedule: boolean;
+  }) => void;
   onClose: () => void;
 }
 
@@ -14,6 +21,7 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
   const [duration, setDuration] = useState(60);
   const [repeatType, setRepeatType] = useState<RepeatType>('none');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [alsoAddSchedule, setAlsoAddSchedule] = useState(false);
 
   const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
   const endTimeMinutes = Math.min(nowMinutes + duration, 24 * 60 - 1);
@@ -31,9 +39,9 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
       title: title.trim(),
       start_time: formatTime(nowMinutes),
       end_time: formatTime(endTimeMinutes),
-      repeat_type: repeatType,
+      repeat_type: alsoAddSchedule ? repeatType : 'none',
       repeat_days: repeatDays,
-      start_date: new Date().toISOString().split('T')[0],
+      alsoAddSchedule,
     });
   };
 
@@ -77,42 +85,56 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
             </select>
           </div>
           <div className="form-group">
-            <label>Repeat</label>
-            <div className="repeat-options">
-              {([
-                { value: 'none', label: 'Just today' },
-                { value: 'daily', label: 'Every day' },
-                { value: 'weekdays', label: 'Weekdays' },
-                { value: 'weekly', label: 'Every week' },
-                { value: 'custom', label: 'Custom' },
-              ] as { value: RepeatType; label: string }[]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`repeat-btn${repeatType === value ? ' active' : ''}`}
-                  onClick={() => setRepeatType(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={alsoAddSchedule}
+                onChange={(e) => setAlsoAddSchedule(e.target.checked)}
+              />
+              <span>Also add this as a schedule</span>
+            </label>
           </div>
-          {(repeatType === 'weekly' || repeatType === 'custom') && (
-            <div className="form-group">
-              <label>Days</label>
-              <div className="days-row">
-                {DAYS.map((day, i) => (
-                  <button
-                    key={day}
-                    type="button"
-                    className={`day-btn${repeatDays.includes(i) ? ' active' : ''}`}
-                    onClick={() => toggleDay(i)}
-                  >
-                    {day}
-                  </button>
-                ))}
+          {alsoAddSchedule && (
+            <>
+              <div className="form-group">
+                <label>Repeat</label>
+                <div className="repeat-options">
+                  {([
+                    { value: 'none', label: 'Just today' },
+                    { value: 'daily', label: 'Every day' },
+                    { value: 'weekdays', label: 'Weekdays' },
+                    { value: 'weekly', label: 'Every week' },
+                    { value: 'custom', label: 'Custom' },
+                  ] as { value: RepeatType; label: string }[]).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`repeat-btn${repeatType === value ? ' active' : ''}`}
+                      onClick={() => setRepeatType(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+              {(repeatType === 'weekly' || repeatType === 'custom') && (
+                <div className="form-group">
+                  <label>Days</label>
+                  <div className="days-row">
+                    {DAYS.map((day, i) => (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`day-btn${repeatDays.includes(i) ? ' active' : ''}`}
+                        onClick={() => toggleDay(i)}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div className="form-actions">
             <div className="form-actions-right">

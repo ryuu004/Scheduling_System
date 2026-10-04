@@ -30,16 +30,33 @@ export interface RecurringException {
   created_at: string;
 }
 
+export type ActivitySource = 'live' | 'retrospective' | 'capture';
+
+export type ActivityStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
+
 export interface ActivityLog {
   id: string;
   title: string;
-  planned_date: string;
-  planned_start_time: string;
-  planned_end_time: string;
+  planned_date: string | null;
+  planned_start_time: string | null;
+  planned_end_time: string | null;
   actual_start_time: string | null;
   actual_end_time: string | null;
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  status: ActivityStatus;
   created_at: string;
+
+  /** Provenance: which plan this activity was measured against. */
+  schedule_id: string | null;
+  recurring_id: string | null;
+  occurrence_date: string | null;
+  /** How the activity was recorded. Says nothing about data quality. */
+  source: ActivitySource;
+}
+
+export interface LogProvenance {
+  scheduleId?: string | null;
+  recurringId?: string | null;
+  occurrenceDate?: string | null;
 }
 
 export interface OccurrenceOverride {

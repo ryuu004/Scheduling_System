@@ -1,19 +1,25 @@
 import { useState } from 'react';
-import type { ActivityLog, Schedule } from '../types';
+import type { ActivityLog, ActivitySource, Schedule, LogProvenance } from '../types';
+import { provenanceFor, timeToMinutes } from '../lib/activity';
 
 interface Props {
-  schedules: Schedule[];
   logs: ActivityLog[];
   activeLogId: string | null;
   elapsed: number;
-  currentTime: Date;
-  onStart: (title: string, startTime: string, endTime: string) => void;
+  selectedDate: string;
+  schedules: Schedule[];
   onPause: () => void;
   onResume: () => void;
   onFinish: () => void;
   onSkip: (logId: string) => void;
   onAdjustTime: (logId: string, actualStart: string, actualEnd: string) => void;
-  onAddActivity: (title: string, date: string, actualStart: string, actualEnd: string) => void;
+  onAddActivity: (
+    title: string,
+    date: string,
+    actualStart: string,
+    actualEnd: string,
+    plan?: { plannedStartTime: string; plannedEndTime: string } & LogProvenance
+  ) => void;
 }
 
 function formatElapsed(seconds: number): string {
@@ -23,13 +29,29 @@ function formatElapsed(seconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+const SOURCE_LABEL: Record<ActivitySource, string> = {
+  live: 'live',
+  retrospective: 'retrospective',
+  capture: 'capture',
+};
+
+const PROVENANCE_LABEL = {
+  'one-time': 'one-time',
+  recurring: 'recurring',
+  unplanned: 'unplanned',
+} as const;
+
+/**
+ * Reports activity that is already in flight or already recorded. Starting an
+ * activity is no longer handled here: the schedule itself is the entry point,
+ * so this component only reflects and closes out what exists.
+ */
 export function ActivityTracker({
-  schedules,
   logs,
   activeLogId,
   elapsed,
-  currentTime,
-  onStart,
+  selectedDate,
+  schedules,
   onPause,
   onResume,
   onFinish,
@@ -45,32 +67,12 @@ export function ActivityTracker({
   const [addStart, setAddStart] = useState('');
   const [addEnd, setAddEnd] = useState('');
 
-  const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-
-  const currentSchedule = schedules.find((s) => {
-    const [sh, sm] = s.start_time.split(':').map(Number);
-    const [eh, em] = s.end_time.split(':').map(Number);
-    return nowMinutes >= sh * 60 + sm && nowMinutes < eh * 60 + em;
-  });
-
   const currentLog = logs.find((l) => l.id === activeLogId);
   const pendingLogs = logs.filter((l) => l.status === 'pending');
   const completedLogs = logs.filter((l) => l.status === 'completed' || l.status === 'skipped');
 
-  const handleStartNow = () => {
-    if (!currentSchedule) return;
-    onStart(currentSchedule.title, currentSchedule.start_time, currentSchedule.end_time);
-  };
-
-  const handleStartEarlier = () => {
-    if (!currentSchedule) return;
-    const enteredStart = prompt('Enter actual start time (HH:MM):');
-    if (enteredStart) {
-      onStart(currentSchedule.title, enteredStart, currentSchedule.end_time);
-    }
-  };
-
   const handleDoneAsPlanned = (log: ActivityLog) => {
+    if (!log.planned_start_time || !log.planned_end_time) return;
     onAdjustTime(log.id, log.planned_start_time, log.planned_end_time);
   };
 
@@ -84,28 +86,41 @@ export function ActivityTracker({
   };
 
   const handleAddSubmit = () => {
-    if (addTitle && addStart && addEnd) {
-      onAddActivity(addTitle, new Date().toISOString().split('T')[0], addStart, addEnd);
-      setShowAdd(false);
-      setAddTitle('');
-      setAddStart('');
-      setAddEnd('');
-    }
+    if (!addTitle || !addStart || !addEnd) return;
+
+    // If the logged window sits inside a planned block, attach that block as
+    // the baseline so planned-vs-actual stays meaningful.
+    const match = schedules.find((s) => {
+      const aStart = timeToMinutes(addStart);
+      const aEnd = timeToMinutes(addEnd);
+      return (
+        aStart >= timeToMinutes(s.start_time) && aEnd <= timeToMinutes(s.end_time)
+      );
+    });
+
+    onAddActivity(
+      addTitle,
+      selectedDate,
+      addStart,
+      addEnd,
+      match
+        ? {
+            plannedStartTime: match.start_time,
+            plannedEndTime: match.end_time,
+            ...provenanceFor(match, selectedDate),
+          }
+        : undefined
+    );
+    setShowAdd(false);
+    setAddTitle('');
+    setAddStart('');
+    setAddEnd('');
   };
+
+  const hasAnything = currentLog || pendingLogs.length > 0 || completedLogs.length > 0;
 
   return (
     <div className="activity-tracker">
-      {currentSchedule && !currentLog && (
-        <div className="tracker-section">
-          <div className="tracker-title">Track Activity</div>
-          <div className="tracker-schedule">{currentSchedule.title}</div>
-          <div className="tracker-actions">
-            <button className="btn btn-primary" onClick={handleStartNow}>Start Now</button>
-            <button className="btn btn-ghost" onClick={handleStartEarlier}>Started Earlier</button>
-          </div>
-        </div>
-      )}
-
       {currentLog && (
         <div className="tracker-section">
           <div className="tracker-title">Tracking</div>
@@ -129,8 +144,14 @@ export function ActivityTracker({
                 <span className="pending-time">{log.planned_start_time} — {log.planned_end_time}</span>
               </div>
               <div className="pending-actions">
-                <button className="btn btn-ghost" onClick={() => handleDoneAsPlanned(log)}>Done as Planned</button>
-                <button className="btn btn-ghost" onClick={() => { setShowAdjust(log.id); setAdjustStart(log.planned_start_time); setAdjustEnd(log.planned_end_time); }}>Adjust Time</button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => handleDoneAsPlanned(log)}
+                  disabled={!log.planned_start_time || !log.planned_end_time}
+                >
+                  Done as Planned
+                </button>
+                <button className="btn btn-ghost" onClick={() => { setShowAdjust(log.id); setAdjustStart(log.planned_start_time ?? ''); setAdjustEnd(log.planned_end_time ?? ''); }}>Adjust Time</button>
                 <button className="btn btn-danger" onClick={() => onSkip(log.id)}>Skip</button>
               </div>
               {showAdjust === log.id && (
@@ -148,18 +169,36 @@ export function ActivityTracker({
       {completedLogs.length > 0 && (
         <div className="tracker-section">
           <div className="tracker-title">Completed</div>
-          {completedLogs.map((log) => (
-            <div key={log.id} className="completed-log">
-              <span className="completed-title">{log.title}</span>
-              <span className="completed-time">
-                {log.status === 'skipped' ? 'Skipped' : `${log.actual_start_time} — ${log.actual_end_time}`}
-              </span>
-            </div>
-          ))}
+          {completedLogs.map((log) => {
+            const provenance = log.schedule_id
+              ? 'one-time'
+              : log.recurring_id
+                ? 'recurring'
+                : 'unplanned';
+            return (
+              <div key={log.id} className="completed-log">
+                <span className="completed-title">
+                  {log.title}
+                  <span className="log-meta">
+                    {SOURCE_LABEL[log.source]} · {PROVENANCE_LABEL[provenance]}
+                  </span>
+                </span>
+                <span className="completed-time">
+                  {log.status === 'skipped'
+                    ? 'Skipped'
+                    : `${log.actual_start_time} — ${log.actual_end_time}`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <button className="btn btn-ghost add-activity-btn" onClick={() => setShowAdd(true)}>+ Add Activity</button>
+      {hasAnything && (
+        <button className="btn btn-ghost add-activity-btn" onClick={() => setShowAdd(true)}>
+          + Add Activity
+        </button>
+      )}
 
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>

@@ -1,4 +1,5 @@
-import { proposeResolution, timeToMinutes } from '../src/lib/conflict';
+import { proposeResolution } from '../src/lib/conflict';
+import { timeToMinutes } from '../src/lib/activity';
 import type { Schedule, RecurringSchedule } from '../src/types';
 
 const mk = (over: Partial<Schedule> = {}): Schedule => ({

@@ -12,6 +12,7 @@ export function useSchedules(selectedDate: string) {
       .from('schedules')
       .select('*')
       .eq('date', selectedDate)
+      .is('archived_at', null)
       .order('start_time', { ascending: true });
 
     if (error) {
@@ -83,5 +84,26 @@ export function useSchedules(selectedDate: string) {
     setSchedules((prev) => prev.filter((s) => s.id !== id));
   };
 
-  return { schedules, loading, saveSchedule, deleteSchedule };
+  /**
+   * Archive rather than delete.
+   *
+   * Converting a one-time schedule into a recurring one must not destroy the
+   * row: activity_logs.schedule_id points at it, and a hard delete would sever
+   * the provenance of historical logs. Archiving hides it from the timeline
+   * while keeping those links (and the plan snapshot on each log) intact.
+   */
+  const archiveSchedule = async (id: string) => {
+    const { error } = await supabase
+      .from('schedules')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Failed to archive schedule:', error);
+      return;
+    }
+    setSchedules((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  return { schedules, loading, saveSchedule, deleteSchedule, archiveSchedule };
 }
