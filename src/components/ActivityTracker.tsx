@@ -4,13 +4,13 @@ import { provenanceFor, timeToMinutes } from '../lib/activity';
 
 interface Props {
   logs: ActivityLog[];
-  activeLogId: string | null;
-  elapsed: number;
+  runningIds: string[];
+  elapsed: Record<string, number>;
   selectedDate: string;
   schedules: Schedule[];
-  onPause: () => void;
-  onResume: () => void;
-  onFinish: () => void;
+  onPause: (logId: string) => void;
+  onResume: (logId: string) => void;
+  onFinish: (logId: string) => void;
   onSkip: (logId: string) => void;
   onAdjustTime: (logId: string, actualStart: string, actualEnd: string) => void;
   onAddActivity: (
@@ -48,7 +48,7 @@ const PROVENANCE_LABEL = {
  */
 export function ActivityTracker({
   logs,
-  activeLogId,
+  runningIds,
   elapsed,
   selectedDate,
   schedules,
@@ -67,7 +67,13 @@ export function ActivityTracker({
   const [addStart, setAddStart] = useState('');
   const [addEnd, setAddEnd] = useState('');
 
-  const currentLog = logs.find((l) => l.id === activeLogId);
+  const runningLogs = logs.filter((l) => runningIds.includes(l.id));
+
+  // Paused-but-unfinished logs still need a resume control.
+  const pausedLogs = logs.filter(
+    (l) => l.status === 'in_progress' && !runningIds.includes(l.id)
+  );
+
   const pendingLogs = logs.filter((l) => l.status === 'pending');
   const completedLogs = logs.filter((l) => l.status === 'completed' || l.status === 'skipped');
 
@@ -117,20 +123,48 @@ export function ActivityTracker({
     setAddEnd('');
   };
 
-  const hasAnything = currentLog || pendingLogs.length > 0 || completedLogs.length > 0;
+  const hasAnything =
+    runningLogs.length > 0 ||
+    pausedLogs.length > 0 ||
+    pendingLogs.length > 0 ||
+    completedLogs.length > 0;
 
   return (
     <div className="activity-tracker">
-      {currentLog && (
+      {(runningLogs.length > 0 || pausedLogs.length > 0) && (
         <div className="tracker-section">
-          <div className="tracker-title">Tracking</div>
-          <div className="tracker-schedule">{currentLog.title}</div>
-          <div className="tracker-elapsed">{formatElapsed(elapsed)}</div>
-          <div className="tracker-actions">
-            <button className="btn btn-ghost" onClick={onPause}>Pause</button>
-            <button className="btn btn-ghost" onClick={onResume}>Resume</button>
-            <button className="btn btn-primary" onClick={onFinish}>Finish</button>
+          <div className="tracker-title">
+            Tracking
+            {runningLogs.length > 1 && ` (${runningLogs.length} at once)`}
           </div>
+          {runningLogs.map((log) => (
+            <div key={log.id} className="running-log">
+              <div className="pending-info">
+                <span className="pending-title">{log.title}</span>
+                <span className="tracker-elapsed-inline">
+                  {formatElapsed(elapsed[log.id] ?? 0)}
+                </span>
+              </div>
+              <div className="tracker-actions">
+                <button className="btn btn-ghost" onClick={() => onPause(log.id)}>Pause</button>
+                <button className="btn btn-primary" onClick={() => onFinish(log.id)}>Finish</button>
+              </div>
+            </div>
+          ))}
+          {pausedLogs.map((log) => (
+            <div key={log.id} className="running-log paused">
+              <div className="pending-info">
+                <span className="pending-title">{log.title}</span>
+                <span className="tracker-elapsed-inline">
+                  {formatElapsed(elapsed[log.id] ?? 0)}
+                </span>
+              </div>
+              <div className="tracker-actions">
+                <button className="btn btn-ghost" onClick={() => onResume(log.id)}>Resume</button>
+                <button className="btn btn-primary" onClick={() => onFinish(log.id)}>Finish</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

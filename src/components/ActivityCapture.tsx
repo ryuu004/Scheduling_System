@@ -10,6 +10,7 @@ interface Props {
     repeat_type: RepeatType;
     repeat_days: number[];
     alsoAddSchedule: boolean;
+    allowOverlap: boolean;
   }) => void;
   onClose: () => void;
 }
@@ -22,6 +23,7 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
   const [repeatType, setRepeatType] = useState<RepeatType>('none');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [alsoAddSchedule, setAlsoAddSchedule] = useState(false);
+  const [allowOverlap, setAllowOverlap] = useState(false);
 
   const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
   const endTimeMinutes = Math.min(nowMinutes + duration, 24 * 60 - 1);
@@ -42,6 +44,7 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
       repeat_type: alsoAddSchedule ? repeatType : 'none',
       repeat_days: repeatDays,
       alsoAddSchedule,
+      allowOverlap,
     });
   };
 
@@ -96,6 +99,21 @@ export function ActivityCapture({ currentTime, onSave, onClose }: Props) {
           </div>
           {alsoAddSchedule && (
             <>
+              <div className="form-group">
+                <label className="toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={allowOverlap}
+                    onChange={(e) => setAllowOverlap(e.target.checked)}
+                  />
+                  <span>Allow overlapping schedules</span>
+                </label>
+                {allowOverlap && (
+                  <p className="form-hint">
+                    If this overlaps another schedule, it will be saved as-is.
+                  </p>
+                )}
+              </div>
               <div className="form-group">
                 <label>Repeat</label>
                 <div className="repeat-options">

@@ -4,7 +4,6 @@ interface Props {
   schedules: Schedule[];
   currentTime: Date;
   onSelect: (schedule: Schedule) => void;
-  onSelectRecurring?: (schedule: Schedule) => void;
   recurringInfo?: Map<string, { repeat_type: RepeatType; repeat_days: number[] }>;
 }
 
@@ -20,7 +19,48 @@ function getRepeatLabel(repeatType: RepeatType, repeatDays: number[]): string {
   }
 }
 
-export function Timeline({ schedules, currentTime, onSelect, onSelectRecurring, recurringInfo }: Props) {
+interface Placed {
+  schedule: Schedule;
+  start: number;
+  end: number;
+  lane: number;
+}
+
+/**
+ * Assign each block a horizontal lane so overlapping blocks sit side by side
+ * instead of stacking on top of one another.
+ *
+ * Blocks are placed in start order into the first lane whose last occupant has
+ * already ended; `totalLanes` is how many are needed at the widest point, and
+ * every block is then scaled to that width so the column stays a fixed size
+ * regardless of how many lanes exist.
+ */
+function layoutLanes(schedules: Schedule[]): { placed: Placed[]; totalLanes: number } {
+  const items = schedules
+    .map((s) => {
+      const [sh, sm] = s.start_time.split(':').map(Number);
+      const [eh, em] = s.end_time.split(':').map(Number);
+      return { schedule: s, start: sh * 60 + sm, end: eh * 60 + em };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const laneEnds: number[] = [];
+
+  const placed: Placed[] = items.map((item) => {
+    let lane = laneEnds.findIndex((endAt) => endAt <= item.start);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(item.end);
+    } else {
+      laneEnds[lane] = item.end;
+    }
+    return { ...item, lane };
+  });
+
+  return { placed, totalLanes: Math.max(laneEnds.length, 1) };
+}
+
+export function Timeline({ schedules, currentTime, onSelect, recurringInfo }: Props) {
   const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
   const recurringIds = new Set(schedules.filter((s) => !s.created_at).map((s) => s.id));
 
@@ -37,6 +77,8 @@ export function Timeline({ schedules, currentTime, onSelect, onSelectRecurring, 
     const [bh, bm] = b.start_time.split(':').map(Number);
     return ah * 60 + am - (bh * 60 + bm);
   });
+
+  const { placed, totalLanes } = layoutLanes(schedules);
 
   const [firstH] = sorted[0].start_time.split(':').map(Number);
   const [lastH] = sorted[sorted.length - 1].end_time.split(':').map(Number);
@@ -72,25 +114,24 @@ export function Timeline({ schedules, currentTime, onSelect, onSelectRecurring, 
               <span className="now-label">NOW</span>
             </div>
           )}
-          {sorted.map((s) => {
-            const [sh, sm] = s.start_time.split(':').map(Number);
-            const [eh, em] = s.end_time.split(':').map(Number);
-            const top = ((sh * 60 + sm - startHour * 60) / ((endHour - startHour + 1) * 60)) * 100;
-            const height = ((eh * 60 + em - (sh * 60 + sm)) / ((endHour - startHour + 1) * 60)) * 100;
-            const isActive = nowMinutes >= sh * 60 + sm && nowMinutes < eh * 60 + em;
+          {placed.map(({ schedule: s, start, end, lane }) => {
+            const top = ((start - startHour * 60) / ((endHour - startHour + 1) * 60)) * 100;
+            const height = ((end - start) / ((endHour - startHour + 1) * 60)) * 100;
+            const isActive = nowMinutes >= start && nowMinutes < end;
+            const width = 100 / totalLanes;
+            const isLastLane = lane === totalLanes - 1;
 
             return (
               <div
                 key={s.segmentId ?? s.id}
-                className={`timeline-event${isActive ? ' active' : ''}`}
-                style={{ top: `${top}%`, height: `${Math.max(height, 3)}%` }}
-                onClick={() => {
-                  if (onSelectRecurring && recurringIds.has(s.id)) {
-                    onSelectRecurring(s);
-                  } else {
-                    onSelect(s);
-                  }
+                className={`timeline-event${isActive ? ' active' : ''}${totalLanes > 1 ? ' split' : ''}`}
+                style={{
+                  top: `${top}%`,
+                  height: `${Math.max(height, 3)}%`,
+                  left: `${lane * width}%`,
+                  width: isLastLane ? `calc(${width}% - 4px)` : `calc(${width}% - 2px)`,
                 }}
+                onClick={() => onSelect(s)}
               >
                 <span className="event-title">
                   {s.title}

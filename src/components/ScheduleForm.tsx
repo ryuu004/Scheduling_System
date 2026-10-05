@@ -18,6 +18,12 @@ export interface ScheduleFormData {
   repeat_type: RepeatType;
   repeat_days: number[];
   start_date: string;
+  /**
+   * Skip conflict resolution and save as-is. Some work genuinely happens
+   * alongside other work, so an overlap can be intentional rather than a
+   * scheduling mistake.
+   */
+  allowOverlap: boolean;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -30,6 +36,7 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
   const [repeatType, setRepeatType] = useState<RepeatType>('none');
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [startDate, setStartDate] = useState(selectedDate);
+  const [allowOverlap, setAllowOverlap] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -47,7 +54,7 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onSave({ title: title.trim(), date, start_time: startTime, end_time: endTime, repeat_type: repeatType, repeat_days: repeatDays, start_date: startDate });
+    onSave({ title: title.trim(), date, start_time: startTime, end_time: endTime, repeat_type: repeatType, repeat_days: repeatDays, start_date: startDate, allowOverlap });
   };
 
   const toggleDay = (day: number) => {
@@ -112,6 +119,22 @@ export function ScheduleForm({ schedule, selectedDate, onSave, onDelete, onSkipD
               />
             </div>
           )}
+          <div className="form-group">
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={allowOverlap}
+                onChange={(e) => setAllowOverlap(e.target.checked)}
+              />
+              <span>Allow overlapping schedules</span>
+            </label>
+            {allowOverlap && (
+              <p className="form-hint">
+                If this overlaps another schedule, it will be saved as-is
+                without asking you to resolve it.
+              </p>
+            )}
+          </div>
           <div className="form-group">
             <label>Repeat</label>
             <div className="repeat-options">

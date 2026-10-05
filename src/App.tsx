@@ -1,15 +1,33 @@
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useDarkMode } from './hooks/useDarkMode';
 import { SchedulerPage } from './SchedulerPage';
+import { AnalyticsPage } from './AnalyticsPage';
 import './style.css';
+
+type Tab = 'schedule' | 'analytics';
 
 function App() {
   const [darkMode, setDarkMode] = useDarkMode();
+  const [tab, setTab] = useState<Tab>('schedule');
 
   return (
     <div className="app">
       <div className="header-top">
-        <div className="header-spacer" />
+        <nav className="tabs">
+          <button
+            className={`tab${tab === 'schedule' ? ' active' : ''}`}
+            onClick={() => setTab('schedule')}
+          >
+            Schedule
+          </button>
+          <button
+            className={`tab${tab === 'analytics' ? ' active' : ''}`}
+            onClick={() => setTab('analytics')}
+          >
+            Analytics
+          </button>
+        </nav>
         <button
           className="dark-toggle"
           onClick={() => setDarkMode((d) => !d)}
@@ -34,7 +52,8 @@ function App() {
           )}
         </button>
       </div>
-      <SchedulerPage />
+
+      {tab === 'schedule' ? <SchedulerPage /> : <AnalyticsPage />}
     </div>
   );
 }

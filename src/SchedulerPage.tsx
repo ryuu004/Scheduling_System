@@ -27,7 +27,7 @@ export function SchedulerPage() {
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const { schedules, loading, saveSchedule, deleteSchedule, archiveSchedule } = useSchedules(selectedDate);
   const { recurring, exceptions, saveRecurring, deleteRecurring, addException } = useRecurringSchedules();
-  const { logs, activeLogId, elapsed, startFromSchedule, pauseLog, resumeLog, finishLog, skipLog, updateActualTimes, addRetrospectiveLog, addCaptureLog } = useActivityLogs(selectedDate);
+  const { logs, runningIds, elapsed, startFromSchedule, pauseLog, resumeLog, finishLog, skipLog, updateActualTimes, addRetrospectiveLog, addCaptureLog } = useActivityLogs(selectedDate);
   const { overrides, replaceOverrides } = useOccurrenceOverrides();
   const [conflict, setConflict] = useState<ConflictResolution | null>(null);
   const [pendingSave, setPendingSave] = useState<ScheduleFormData | null>(null);
@@ -57,15 +57,26 @@ export function SchedulerPage() {
     setActionSchedule(null);
   };
 
+  /**
+   * Finish whichever running activity was started from this schedule. With
+   * several activities in progress there may be more than one, so the most
+   * recently started match is used.
+   */
   const finishActivityForSchedule = async (schedule: Schedule, actualEnd: string) => {
-    const current = logs.find((l) => l.id === activeLogId);
-    if (!current) {
+    const match = [...runningIds]
+      .reverse()
+      .map((id) => logs.find((l) => l.id === id))
+      .find(
+        (l) => l && (l.schedule_id === schedule.id || l.recurring_id === schedule.id)
+      );
+
+    if (!match) {
       setActionSchedule(null);
       return;
     }
     await updateActualTimes(
-      current.id,
-      current.actual_start_time ?? schedule.start_time,
+      match.id,
+      match.actual_start_time ?? schedule.start_time,
       actualEnd
     );
     setActionSchedule(null);
@@ -91,7 +102,9 @@ export function SchedulerPage() {
 
     const conflicts = detectConflicts(newSchedule, allSchedules, formData.date);
 
-    if (conflicts.length > 0) {
+    // The user can declare an overlap intentional, in which case it is saved
+    // as-is rather than being pushed back through conflict resolution.
+    if (conflicts.length > 0 && !formData.allowOverlap) {
       setConflict(proposeResolution(newSchedule, conflicts[0], recurring));
       setConflictDate(formData.date);
       setConflictTarget(conflicts[0]);
@@ -197,30 +210,33 @@ export function SchedulerPage() {
     repeat_type: RepeatType;
     repeat_days: number[];
     alsoAddSchedule: boolean;
+    allowOverlap: boolean;
   }) => {
     const today = getLocalDateStr();
 
+    // The activity is recorded first and unconditionally: what happened is not
+    // contingent on whether a plan could be saved alongside it.
     await addCaptureLog(data.title, data.start_time, data.end_time);
 
-    if (data.alsoAddSchedule) {
-      if (data.repeat_type === 'none') {
-        await saveSchedule({
-          title: data.title,
-          date: today,
-          start_time: data.start_time,
-          end_time: data.end_time,
-        });
-      } else {
-        await saveRecurring({
-          title: data.title,
-          start_time: data.start_time,
-          end_time: data.end_time,
-          repeat_type: data.repeat_type,
-          repeat_days: data.repeat_days,
-          start_date: today,
-        });
-      }
+    if (!data.alsoAddSchedule) {
+      setShowCapture(false);
+      return;
     }
+
+    const repeatType = data.alsoAddSchedule ? data.repeat_type : 'none';
+
+    // Promote the captured activity into a plan, applying the same conflict
+    // rules as the schedule form so the two entry points cannot disagree.
+    await handleSave({
+      title: data.title,
+      date: today,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      repeat_type: repeatType,
+      repeat_days: data.repeat_days,
+      start_date: today,
+      allowOverlap: data.allowOverlap,
+    });
     setShowCapture(false);
   };
 
@@ -249,7 +265,7 @@ export function SchedulerPage() {
       </header>
 
       <main className="app-main">
-        <CurrentActivity schedules={allSchedules} currentTime={currentTime} onCapture={() => setShowCapture(true)} />
+        <CurrentActivity schedules={allSchedules} logs={logs} runningIds={runningIds} currentTime={currentTime} onCapture={() => setShowCapture(true)} />
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
@@ -257,7 +273,7 @@ export function SchedulerPage() {
         )}
         <ActivityTracker
           logs={logs}
-          activeLogId={activeLogId}
+          runningIds={runningIds}
           elapsed={elapsed}
           selectedDate={selectedDate}
           schedules={allSchedules}
@@ -293,6 +309,7 @@ export function SchedulerPage() {
         <ScheduleActionSheet
           schedule={actionSchedule}
           date={selectedDate}
+          runningIds={runningIds}
           isActive={(() => {
             const now = currentTime.getHours() * 60 + currentTime.getMinutes();
             return (

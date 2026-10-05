@@ -6,6 +6,7 @@ interface Props {
   schedule: Schedule;
   date: string;
   isActive: boolean;
+  runningIds: string[];
   onStartNow: () => void;
   onStartEarly: (actualStart: string) => void;
   onFinish: (actualEnd: string) => void;
@@ -23,6 +24,7 @@ export function ScheduleActionSheet({
   schedule,
   date,
   isActive,
+  runningIds,
   onStartNow,
   onStartEarly,
   onFinish,
@@ -56,6 +58,10 @@ export function ScheduleActionSheet({
 
   const provenance = provenanceFor(schedule, date);
   const isRecurring = Boolean(schedule.repeat_type && schedule.repeat_type !== 'none');
+
+  // Activities are allowed to overlap: starting this one does not disturb any
+  // activity already running. Plans conflict; reality frequently does not.
+  const otherRunning = runningIds.length;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -108,6 +114,9 @@ export function ScheduleActionSheet({
               <span className="action-sheet-provenance">
                 Will be logged against{' '}
                 {provenance.scheduleId ? 'this one-time schedule' : 'this recurring occurrence'}
+                {otherRunning > 0 && (
+                  <> · runs alongside {otherRunning} other{otherRunning === 1 ? '' : 's'}</>
+                )}
               </span>
             </div>
           </>
